@@ -29,6 +29,10 @@ async function run() {
     const sellerMedicine = client
       .db("medicineShopDB")
       .collection("sellerAddedMedicines");
+    const homeCategory = client.db("medicineShopDB").collection("Category");
+    const AllItemsCollection = client
+      .db("medicineShopDB")
+      .collection("AllCategory");
 
     app.post("/users", async (req, res) => {
       const user = req.body;
@@ -115,6 +119,22 @@ async function run() {
     app.post("/category", async (req, res) => {
       const data = req.body;
       const result = await categoryCollection.insertOne(data);
+      res.send(result);
+    });
+
+    app.get("/homeCategory", async (req, res) => {
+      const result = await homeCategory.find().toArray();
+      res.send(result);
+    });
+
+    app.get("/allCategory", async (req, res) => {
+      const result = await AllItemsCollection.find().toArray();
+      res.send(result);
+    });
+    app.get("/allCategory/:name", async (req, res) => {
+      const name = req.params.name;
+      const query = { category: name };
+      const result = await AllItemsCollection.find(query).toArray();
       res.send(result);
     });
 
