@@ -3,10 +3,13 @@ const express = require("express");
 require("dotenv").config();
 const app = express();
 const cors = require("cors");
+const bodyParser = require("body-parser");
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const port = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());
+app.use(bodyParser.json());
 
 const uri = `mongodb+srv://${process.env.USER_NAME}:${process.env.USER_PASS}@cluster0.q9r8zjr.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -33,6 +36,9 @@ async function run() {
     const AllItemsCollection = client
       .db("medicineShopDB")
       .collection("AllCategory");
+
+    const addToCartCollection = client.db("medicineShopDB").collection("cart");
+    const paymentCollection = client.db("medicineShopDB").collection("payment");
 
     app.post("/users", async (req, res) => {
       const user = req.body;
@@ -135,6 +141,80 @@ async function run() {
       const name = req.params.name;
       const query = { category: name };
       const result = await AllItemsCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    app.post("/addToCart", async (req, res) => {
+      const item = req.body;
+      const result = await addToCartCollection.insertOne(item);
+      res.send(result);
+    });
+
+    app.get("/addToCart", async (req, res) => {
+      const result = await addToCartCollection.find().toArray();
+      res.send(result);
+    });
+
+    // Update item quantity in the cart
+    app.put("/addToCart/:id", async (req, res) => {
+      const id = req.params.id;
+      const { quantity } = req.body;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: { quantity: quantity },
+      };
+      const result = await addToCartCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+
+    // Remove an item from the cart
+    app.delete("/addToCart/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await addToCartCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    // Clear the entire cart
+    app.delete("/addToCart", async (req, res) => {
+      const result = await addToCartCollection.deleteMany({});
+      res.send(result);
+    });
+
+    app.post("/create-payment-intent", async (req, res) => {
+      const { price } = req.body;
+      const amount = parseInt(price * 100);
+      console.log(amount, "amount inside the intent");
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
+
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
+    app.post("/payments", async (req, res) => {
+      const payment = req.body;
+      const paymentResult = await paymentCollection.insertOne(payment);
+
+      //  carefully delete each item from the cart
+      console.log("payment info", payment);
+      const query = {
+        _id: {
+          $in: payment.cartIds.map((id) => new ObjectId(id)),
+        },
+      };
+      const deleteResult = await addToCartCollection.deleteMany(query);
+
+      res.send({ paymentResult, deleteResult });
+    });
+
+    app.get("/payments/:email", async (req, res) => {
+      const query = { email: req.params.email };
+      const result = await paymentCollection.find(query).toArray();
       res.send(result);
     });
 
