@@ -83,25 +83,16 @@ async function run() {
       const query = { email: email };
       const user = await usersCollection.findOne(query);
       let admin = false;
-
-      if (user) {
-        admin = user?.role === "admin";
-      }
-
-      res.send({ admin });
-    });
-
-    app.get("/users/user/:email", async (req, res) => {
-      const email = req.params.email;
-      const query = { email: email };
-      const user = await usersCollection.findOne(query);
+      let seller = false;
       let users = false;
 
       if (user) {
+        admin = user?.role === "admin";
+        seller = user?.role === "seller";
         users = user?.role === "user";
       }
 
-      res.send({ users });
+      res.send({ admin, seller, users });
     });
 
     app.get("/sellerMedicine", async (req, res) => {
