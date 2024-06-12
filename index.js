@@ -39,6 +39,9 @@ async function run() {
 
     const addToCartCollection = client.db("medicineShopDB").collection("cart");
     const paymentCollection = client.db("medicineShopDB").collection("payment");
+    const healthCollection = client
+      .db("medicineShopDB")
+      .collection("HealthTips");
 
     app.post("/users", async (req, res) => {
       const user = req.body;
@@ -263,6 +266,11 @@ async function run() {
         $set: { status: "paid" },
       };
       const result = await paymentCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+    });
+
+    app.get("/healthTips", async (req, res) => {
+      const result = await healthCollection.find().toArray();
       res.send(result);
     });
 
