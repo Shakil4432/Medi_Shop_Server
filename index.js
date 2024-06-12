@@ -83,10 +83,25 @@ async function run() {
       const query = { email: email };
       const user = await usersCollection.findOne(query);
       let admin = false;
+
       if (user) {
         admin = user?.role === "admin";
       }
+
       res.send({ admin });
+    });
+
+    app.get("/users/user/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+      let users = false;
+
+      if (user) {
+        users = user?.role === "user";
+      }
+
+      res.send({ users });
     });
 
     app.get("/sellerMedicine", async (req, res) => {
@@ -200,7 +215,6 @@ async function run() {
       const payment = req.body;
       const paymentResult = await paymentCollection.insertOne(payment);
 
-      //  carefully delete each item from the cart
       console.log("payment info", payment);
       const query = {
         _id: {
@@ -215,6 +229,49 @@ async function run() {
     app.get("/payments/:email", async (req, res) => {
       const query = { email: req.params.email };
       const result = await paymentCollection.find(query).toArray();
+      res.send(result);
+    });
+    app.get("/payments", async (req, res) => {
+      const result = await paymentCollection.find().toArray();
+      res.send(result);
+    });
+    app.get("/overview", async (req, res) => {
+      try {
+        const totalSales = await paymentCollection
+          .aggregate([{ $group: { _id: null, total: { $sum: "$price" } } }])
+          .toArray();
+
+        const paidTotal = await paymentCollection
+          .aggregate([
+            { $match: { status: "paid" } },
+            { $group: { _id: null, total: { $sum: "$price" } } },
+          ])
+          .toArray();
+
+        const pendingTotal = await paymentCollection
+          .aggregate([
+            { $match: { status: "pending" } },
+            { $group: { _id: null, total: { $sum: "$price" } } },
+          ])
+          .toArray();
+
+        res.send({
+          totalSales: totalSales[0]?.total || 0,
+          paidTotal: paidTotal[0]?.total || 0,
+          pendingTotal: pendingTotal[0]?.total || 0,
+        });
+      } catch (error) {
+        res.status(500).send({ error: "Internal Server Error" });
+      }
+    });
+
+    app.patch("/payments/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: { status: "paid" },
+      };
+      const result = await paymentCollection.updateOne(filter, updatedDoc);
       res.send(result);
     });
 
